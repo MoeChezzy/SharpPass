@@ -27,6 +27,7 @@ namespace SharpPass
         public CredentialSet(string title, string username, string email, string password, string url, string[] notes)
         {
             // Assign all fields from given parameters.
+            // TODO Check for a blank username but an assigned email before object construction - instruct user to substitute the email into the Username field and leave email blank.
             Title = ConvertToSecureString(title);
             Username = ConvertToSecureString(username);
             Email = ConvertToSecureString(email);
