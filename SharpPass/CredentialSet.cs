@@ -14,8 +14,8 @@ namespace SharpPass
 
         // TODO: Create a method to export the list of CredentialSet objects (include encryption).
 
-        private SecureString Title;
-        private SecureString Username;
+        private readonly SecureString Title;
+        private readonly SecureString Username;
         private SecureString Email;
         private SecureString Password;
         private SecureString URL;
@@ -24,10 +24,17 @@ namespace SharpPass
         private DateTime CreationDateTime;
         private DateTime LastPasswordUpdate;
 
+        public enum ModifyResult
+        {
+            Success, // The CredentialSet was modified successfully.
+            Collision, // The CredentialSet was not modified; another CredentialSet with the same Title and Username fields already exists.
+            KeyMismatch // The CredentialSet was not modified; the given main key could not be validated.
+        }
+
         public CredentialSet(string title, string username, string email, string password, string url, string[] notes)
         {
             // Assign all fields from given parameters.
-            // TODO Check for a blank username but an assigned email before object construction - instruct user to substitute the email into the Username field and leave email blank.
+            // TODO: Check for a blank username but an assigned email before object construction - instruct user to substitute the email into the Username field and leave email blank.
             Title = ConvertToSecureString(title);
             Username = ConvertToSecureString(username);
             Email = ConvertToSecureString(email);
@@ -43,6 +50,27 @@ namespace SharpPass
             // Assign the two DateTime fields.
             CreationDateTime = DateTime.Now;
             LastPasswordUpdate = DateTime.Now;
+        }
+
+        private CredentialSet(CredentialSet credentialSet, string title, string username, DateTime creationDateTime, DateTime lastPasswordUpdate)
+        {
+            // Assign all fields from given CredentialSet.
+            Title = ConvertToSecureString(title);
+            Username = ConvertToSecureString(username);
+            Email = ConvertToSecureString(credentialSet.GetEmail());
+            Password = ConvertToSecureString(credentialSet.GetPassword());
+            URL = ConvertToSecureString(credentialSet.GetURL());
+
+            string[] notes = credentialSet.GetNotes();
+            Notes = new SecureString[notes.Length];
+            for (int i = 0; i < notes.Length; i++)
+            {
+                Notes[i] = ConvertToSecureString(notes[i]);
+            }
+
+            // Assign the two DateTime fields.
+            CreationDateTime = creationDateTime;
+            LastPasswordUpdate = lastPasswordUpdate;
         }
 
         #region Accessor Methods
@@ -93,13 +121,111 @@ namespace SharpPass
 
         // All mutator methods must be supplied with the main key.
 
-        public bool SetTitle(string title, string mainKey)
+        public ModifyResult SetTitle(string title)
         {
-            // TODO: Implement the SetTitle mutator method as well as all of the mutator methods.
+            // Null check and validation check for the main key.
+            if (GivenKeyIsNull() || !GivenKeyIsCorrect())
+            {
+                return ModifyResult.KeyMismatch;
+            }
+            
+            // Collision check.
+            CredentialSet credentialSet = new CredentialSet(this, title, this.GetUsername(), this.CreationDateTime, this.LastPasswordUpdate);
+            if (Exists(credentialSet))
+            {
+                return ModifyResult.Collision;
+            }
+
+            // Both checks passed; modify the title.
+            // Get index of this key in the list.
+            int index = GetIndex(this);
+
+            // Replace the CredentialSet with the newly updated one.
+            CredentialSetList[index] = credentialSet;
+            return ModifyResult.Success;
+        }
+
+        public ModifyResult SetUsername(string username)
+        {
+            // Null check and validation check for the main key.
+            if (GivenKeyIsNull() || !GivenKeyIsCorrect())
+            {
+                return ModifyResult.KeyMismatch;
+            }
+
+            // Collision check.
+            CredentialSet credentialSet = new CredentialSet(this, this.GetTitle(), username, this.CreationDateTime, this.LastPasswordUpdate);
+            if (Exists(credentialSet))
+            {
+                return ModifyResult.Collision;
+            }
+
+            // Both checks passed; modify the username.
+            // Get index of this key in the list.
+            int index = GetIndex(this);
+
+            // Replace the CredentialSet with the newly updated one.
+            CredentialSetList[index] = credentialSet;
+            return ModifyResult.Success;
+        }
+
+        public ModifyResult SetEmail(string email)
+        {
+            // Null check and validation check for the main key.
+            if (GivenKeyIsNull() || !GivenKeyIsCorrect())
+            {
+                return ModifyResult.KeyMismatch;
+            }
+
+            this.Email = ConvertToSecureString(email);
+            return ModifyResult.Success;
+        }
+
+        public ModifyResult SetPassword(string password)
+        {
+            // TODO: Implement original password checking before allowing change of password?
             throw new NotImplementedException();
         }
 
+        public ModifyResult SetURL(string url)
+        {
+            // Null check and validation check for the main key.
+            if (GivenKeyIsNull() || !GivenKeyIsCorrect())
+            {
+                return ModifyResult.KeyMismatch;
+            }
+
+            this.URL = ConvertToSecureString(url);
+            return ModifyResult.Success;
+        }
+
+        public ModifyResult SetNotes(string[] notes)
+        {
+            // Null check and validation check for the main key.
+            if (GivenKeyIsNull() || !GivenKeyIsCorrect())
+            {
+                return ModifyResult.KeyMismatch;
+            }
+
+            Notes = new SecureString[notes.Length];
+            for (int i = 0; i < notes.Length; i++)
+            {
+                Notes[i] = ConvertToSecureString(notes[i]);
+            }
+            return ModifyResult.Success;
+        }
+
         #endregion
+
+        private bool GivenKeyIsNull()
+        {
+            return Program.Session.GetMainKeyInput() == null || ConvertToString(Program.Session.GetMainKeyInput()) == null;
+        }
+
+        private bool GivenKeyIsCorrect()
+        {
+            return SecurityHelper.Validate(Program.Session.GetMainKeyInput(), Program.Session.GetMainKeyStored());
+        }
 
         public TimeSpan GetTimeSincePasswordUpdate()
         {
@@ -131,9 +257,23 @@ namespace SharpPass
         public override bool Equals(object obj)
         {
             // Two CredentialSet objects are only equal if their Title and Username fields are the same.
-
             CredentialSet comparison = (CredentialSet)obj;
             return (this.GetTitle() == comparison.GetTitle() && this.GetUsername() == comparison.GetUsername());
+        }
+
+        /// <summary>
+        /// Retrieves a hash code of this CredentialSet's Title and Username fields.
+        /// </summary>
+        /// <returns>Returns a hash code of this CredentialSet.</returns>
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 19;
+                hash = hash * 31 + Title.GetHashCode();
+                hash = hash * 31 + Username.GetHashCode();
+                return hash;
+            }
         }
 
         /// <summary>
@@ -151,6 +291,18 @@ namespace SharpPass
                 }
             }
             return false;
+        }
+
+        private static int GetIndex(CredentialSet credentialSet)
+        {
+            for (int i = 0; i < CredentialSetList.Count; i++)
+            {
+                if (credentialSet.Equals(CredentialSetList[i]))
+                {
+                    return i;
+                }
+            }
+            return -1;
         }
 
         /// <summary>
