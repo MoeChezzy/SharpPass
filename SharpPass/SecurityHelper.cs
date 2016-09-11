@@ -7,13 +7,13 @@ namespace SharpPass
 {
     public class SecurityHelper
     {
-        private const int SaltByteSize = 64; // Default: 24
-        private const int HashByteSize = 256; // Default: 20
+        private const int PBKDF2SaltByteSize = 64; // Default: 24
+        private const int PBKDF2HashByteSize = 256; // Default: 20
         private const int PBKDF2Iterations = 2000;
-        private const int IterationIndex = 0;
-        private const int SaltIndex = 1;
-        private const int PBKDF2Index = 2;
-        private const char Delimiter = ';';
+        private const int PBKDF2IterationIndex = 0;
+        private const int PBKDF2SaltIndex = 1;
+        private const int PBKDF2HashIndex = 2;
+        private const char PBKDF2Delimiter = ':';
 
         /// <summary>
         /// Hashes a string using the PBKDF2 algorithm.
@@ -23,11 +23,11 @@ namespace SharpPass
         public static string Hash(string input)
         {
             RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
-            byte[] salt = new byte[SaltByteSize];
+            byte[] salt = new byte[PBKDF2SaltByteSize];
             rng.GetBytes(salt);
 
-            byte[] hash = GetPBKDF2Bytes(input, salt, PBKDF2Iterations, HashByteSize);
-            return string.Format("{0}{1}{2}{1}{3}", Convert.ToBase64String(Encoding.UTF8.GetBytes(PBKDF2Iterations.ToString())), Delimiter, Convert.ToBase64String(salt), Convert.ToBase64String(hash));
+            byte[] hash = GetPBKDF2Bytes(input, salt, PBKDF2Iterations, PBKDF2HashByteSize);
+            return string.Format("{0}{1}{2}{1}{3}", Convert.ToBase64String(Encoding.UTF8.GetBytes(PBKDF2Iterations.ToString())), PBKDF2Delimiter, Convert.ToBase64String(salt), Convert.ToBase64String(hash));
         }
 
         /// <summary>
@@ -38,10 +38,10 @@ namespace SharpPass
         /// <returns>Returns whether the string is valid.</returns>
         public static bool Validate(string input, string hash)
         {
-            string[] splitHash = hash.Split(Delimiter);
-            int iterations = int.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(splitHash[IterationIndex])));
-            byte[] saltBytes = Convert.FromBase64String(splitHash[SaltIndex]);
-            byte[] hashBytes = Convert.FromBase64String(splitHash[PBKDF2Index]);
+            string[] splitHash = hash.Split(PBKDF2Delimiter);
+            int iterations = int.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(splitHash[PBKDF2IterationIndex])));
+            byte[] saltBytes = Convert.FromBase64String(splitHash[PBKDF2SaltIndex]);
+            byte[] hashBytes = Convert.FromBase64String(splitHash[PBKDF2HashIndex]);
 
             byte[] testHash = GetPBKDF2Bytes(input, saltBytes, iterations, hashBytes.Length);
             return Check(hashBytes, testHash);
@@ -57,10 +57,10 @@ namespace SharpPass
         {
             string input = CredentialSet.ConvertToString(inputSecureString);
             string hash = CredentialSet.ConvertToString(hashSecureString);
-            string[] splitHash = hash.Split(Delimiter);
-            int iterations = int.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(splitHash[IterationIndex])));
-            byte[] saltBytes = Convert.FromBase64String(splitHash[SaltIndex]);
-            byte[] hashBytes = Convert.FromBase64String(splitHash[PBKDF2Index]);
+            string[] splitHash = hash.Split(PBKDF2Delimiter);
+            int iterations = int.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(splitHash[PBKDF2IterationIndex])));
+            byte[] saltBytes = Convert.FromBase64String(splitHash[PBKDF2SaltIndex]);
+            byte[] hashBytes = Convert.FromBase64String(splitHash[PBKDF2HashIndex]);
 
             byte[] testHash = GetPBKDF2Bytes(input, saltBytes, iterations, hashBytes.Length);
             return Check(hashBytes, testHash);
