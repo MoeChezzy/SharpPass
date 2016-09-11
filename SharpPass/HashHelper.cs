@@ -12,6 +12,7 @@ namespace SharpPass
         private const int IterationIndex = 0;
         private const int SaltIndex = 1;
         private const int PBKDF2Index = 2;
+        private const char Delimiter = ';';
 
         /// <summary>
         /// Hashes a string using the PBKDF2 algorithm.
@@ -20,30 +21,29 @@ namespace SharpPass
         /// <returns>Returns a hashed string.</returns>
         public static string Hash(string input)
         {
-            RNGCryptoServiceProvider cryptoProvider = new RNGCryptoServiceProvider();
+            RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
             byte[] salt = new byte[SaltByteSize];
-            cryptoProvider.GetBytes(salt);
+            rng.GetBytes(salt);
 
             byte[] hash = GetPBKDF2Bytes(input, salt, PBKDF2Iterations, HashByteSize);
-            return string.Format("{0}:{1}:{2}", Convert.ToBase64String(Encoding.UTF8.GetBytes(PBKDF2Iterations.ToString())), Convert.ToBase64String(salt), Convert.ToBase64String(hash));
+            return string.Format("{0}{1}{2}{1}{3}", Convert.ToBase64String(Encoding.UTF8.GetBytes(PBKDF2Iterations.ToString())), Delimiter, Convert.ToBase64String(salt), Convert.ToBase64String(hash));
         }
 
         /// <summary>
         /// Checks whether a given string matches a hash.
         /// </summary>
         /// <param name="input">The plaintext string to check.</param>
-        /// <param name="validationHash">The hash to validate against.</param>
+        /// <param name="hash">The hash to validate against.</param>
         /// <returns>Returns whether the string is valid.</returns>
-        public static bool Validate(string input, string validationHash)
+        public static bool Validate(string input, string hash)
         {
-            char[] delimiter = { ':' };
-            string[] split = validationHash.Split(delimiter);
-            int iterations = int.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(split[IterationIndex])));
-            byte[] salt = Convert.FromBase64String(split[SaltIndex]);
-            byte[] hash = Convert.FromBase64String(split[PBKDF2Index]);
+            string[] splitHash = hash.Split(Delimiter);
+            int iterations = int.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(splitHash[IterationIndex])));
+            byte[] saltBytes = Convert.FromBase64String(splitHash[SaltIndex]);
+            byte[] hashBytes = Convert.FromBase64String(splitHash[PBKDF2Index]);
 
-            byte[] testHash = GetPBKDF2Bytes(input, salt, iterations, hash.Length);
-            return Check(hash, testHash);
+            byte[] testHash = GetPBKDF2Bytes(input, saltBytes, iterations, hashBytes.Length);
+            return Check(hashBytes, testHash);
         }
 
         private static bool Check(byte[] a, byte[] b)
