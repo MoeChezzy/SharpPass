@@ -12,7 +12,14 @@ namespace SharpPass
         /// <summary>
         /// The name of the password file. The password file should be stored in the same directory of the executable.
         /// </summary>
-        public static string PasswordFilename = "SharpPassCredentials.txt";
+        private static string PasswordFilename = "SharpPassCredentials.txt";
+
+        public static string GetPasswordFilepath()
+        {
+            return string.Format("{0}\\{1}", Environment.CurrentDirectory, PasswordFilename);
+        }
+
+        public static Session Session;
 
         /// <summary>
         /// The main entry point for the application.
@@ -24,10 +31,14 @@ namespace SharpPass
             Application.SetCompatibleTextRenderingDefault(false);
 
             // Check if a password file exists.
-            if (!File.Exists(string.Format("{0}\\{1}", Environment.CurrentDirectory, PasswordFilename)))
+            if (!File.Exists(GetPasswordFilepath()))
             {
                 // Password file does not exist - let user create a main key.
-
+                Application.Run(new MainKeyCreationForm());
+            }
+            else
+            {
+                // Run login.
             }
         }
     }
